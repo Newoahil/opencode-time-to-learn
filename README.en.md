@@ -130,28 +130,29 @@ Stage 7  Completion report
 After each session, the agent appends a structured knowledge card:
 
 ```markdown
-## Learning Record - YYYY-MM-DD
+## What I Learned - YYYY-MM-DD
 
-### Core Concept
-<Paraphrased summary, independently readable>
+### In One Sentence
+<Simplest explanation, like talking to a friend>
 
-### Key Points
-- <Essential understanding>
-- <Distinction from similar concepts>
-- <Use cases and boundaries>
+### How I Got There
+1. At first I thought...
+2. Then I realized...
+3. Now I understand that...
 
-### Common Misconceptions
-| Misconception | Correct Understanding |
-|--------------|----------------------|
+### What I Had Wrong
 
-### Practical Scenarios
-- <Real-world examples>
+I thought: <old understanding>
+→ Actually: <correct understanding>
 
-### Related Knowledge
-- [[Related Note]] - Description
+### Where This Applies
+- <Real scenarios>
+
+### Related
+- [[Related Note]] - Brief connection
 
 ### Mastery Level
-half → done
+half
 ```
 
 ## License
