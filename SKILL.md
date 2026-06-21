@@ -132,37 +132,77 @@ obsidian vault="VAULT_NAME" property:read name="status" file="<笔记名>"
 
 ### 阶段 4：撰写学习总结
 
-**核心原则：笔记是独立的可回看学习资料。** 用户忘记后仅靠笔记就能重新掌握。转述整理，不是对话转录。**风格必须口语化**，用"我以为X→其实Y"、"之前理解错的地方"这种自己写笔记的表达方式，避免学术术语。
+**核心原则：笔记是独立的可回看学习资料。** 用户忘记后仅靠笔记就能重新掌握。口语化表达，使用 Obsidian callout 美化排版。
+
+**首次学习时**，先用模板初始化笔记结构，后续追加内容。
+
+#### 4a. 首次学习：初始化模板
+
+```bash
+# 写入模板结构（替代原笔记内容）
+obsidian vault="VAULT_NAME" create path="LEARN_FOLDER/<笔记名>.md" content="
+---
+tags: []
+status: notyet
+---
+
+# <概念名>
+
+> [!abstract] 一句话
+> （待学习）
+
+### 相关的
+"
+overwrite
+```
+
+#### 4b. 追加学习总结
 
 ```bash
 obsidian vault="VAULT_NAME" append file="<笔记名>" content="
+---
+
 ## 学到了什么 - YYYY-MM-DD
 
-### 一句话说清楚
-<用最简单的话解释这个知识点，像在跟朋友聊天>
+> [!abstract] 一句话
+> <最简单直白的解释>
 
 ### 我是怎么理解的
 1. 一开始我以为...
 2. 后来发现...
 3. 现在我懂了...
 
-### 之前理解错的地方
+> [!warning] 之前理解错的地方
 
 我以为 <旧理解>
 → 其实 <正确理解>
 
-### 在哪能用上
+> [!example] 在哪能用上
 - <你在对话里提到的真实场景>
 - <我补充的例子>
-
-### 相关的
-- [[笔记A]] - <一两句话说明关联>
-- [[笔记B]] - <一两句话说明关联>
 
 ### 掌握程度
 half
 "
 ```
+
+#### 4c. 更新关联
+
+在笔记顶部的 `### 相关的` 区域追加新发现的关联笔记：
+
+```bash
+obsidian vault="VAULT_NAME" append file="<笔记名>" content="- [[笔记A]] - <关联说明>"
+```
+
+#### 4d. 自动打标签
+
+根据概念所属领域自动添加 tags 属性：
+
+```bash
+obsidian vault="VAULT_NAME" property:set name="tags" value="devops, ci-cd" type="list" file="<笔记名>"
+```
+
+**标签判定**：根据对话内容判断概念的领域，用 1-3 个英文小写标签。常见领域：`devops`, `backend`, `frontend`, `database`, `testing`, `system`, `network`, `language`, `framework`, `tool`。
 
 ### 阶段 5：更新状态与移动
 
