@@ -79,28 +79,32 @@ while ($running -ne $true) {
 
 ### 阶段 1：选中笔记
 
-```
-/ttl 无参数：
-  obsidian vault="VAULT_NAME" files folder="LEARN_FOLDER"
-  → 逐个读取 status 属性 → 优先选 half，half 有多个则随机选一个
-  → half 无则从 notyet 中随机选
-  → 若 LEARN_FOLDER 为空：告知用户"LEARN_FOLDER 里没有待学习笔记"
+**关键区分：有参数和没参数走完全不同的分支。**
 
-/ttl <知识点>：
-  obsidian vault="VAULT_NAME" read file="<知识点>"
-  → 文件存在 → 继续阶段 2
-  → 文件不存在 → 自动创建笔记，然后询问用户：
-    obsidian vault="VAULT_NAME" create path="LEARN_FOLDER/<知识点>.md" content="
-    ---
-    tags: []
-    status: notyet
-    ---
-    # <知识点>
-    > [!abstract] 一句话
-    > （待学习）
-    ### 相关的
-    " silent
-    创建后："已创建 <知识点>，要现在开始学习吗？"
+```
+/ttl 无参数（$ARGUMENTS 为空）：
+  1. obsidian vault="VAULT_NAME" files folder="LEARN_FOLDER"
+  2. 逐个读取 status 属性 → 优先选 half，half 有多个则随机选一个
+  3. half 无则从 notyet 中随机选
+  4. 若 LEARN_FOLDER 为空：告知用户"LEARN_FOLDER 里没有待学习笔记"
+  5. 此分支绝不使用任何参数值
+
+/ttl <知识点>（$ARGUMENTS 非空）：
+  1. 必须直接定位到 <知识点>，跳过 half 优先级和随机选择
+  2. obsidian vault="VAULT_NAME" read file="<知识点>"
+  3. 文件存在 → 继续阶段 2
+  4. 文件不存在 → 自动创建笔记，然后询问用户：
+     obsidian vault="VAULT_NAME" create path="LEARN_FOLDER/<知识点>.md" content="
+     ---
+     tags: []
+     status: notyet
+     ---
+     # <知识点>
+     > [!abstract] 一句话
+     > （待学习）
+     ### 相关的
+     " silent
+     创建后："已创建 <知识点>，要现在开始学习吗？"
 ```
 
 ### 阶段 2：读取与讲解
@@ -304,5 +308,6 @@ Obsidian 原生图谱自动渲染关系网。
 - done 状态**必须**触发移动到领域文件夹
 - **用户只参与学习对话，不得让用户操作文件或手动设置状态**
 - 所有 Obsidian CLI 命令**必须**带 `vault="VAULT_NAME"`
+- `/ttl <知识点>` 指定了参数时，**必须直接定位该笔记**，绝不走 half 优先或随机选择
 - 总结**必须**是转述性知识卡片，不是对话记录
 - **所有输出、讲解、对话、总结必须使用简体中文**（技术术语可保留英文，但解释用中文）
