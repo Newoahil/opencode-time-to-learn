@@ -1,0 +1,240 @@
+---
+name: time-to-learn
+description: Use when user types /ttl command, /ttl <topic>, or expresses intent to learn a concept from their Obsidian iLearn vault — manages interactive learning dialogue, note status (notyet/half/done), file organization, and knowledge graph via wikilinks
+---
+
+# time-to-learn
+
+## 概述
+
+交互式学习 skill。用户只参与学习对话，agent 全自动完成：笔记选择、内容讲解、对话纠正、学习总结撰写、状态判定、文件移动、知识关系 wikilink 维护。
+
+**所有输出必须使用简体中文。** 讲解、对话、总结、报告全部为中文。笔记内容中的技术术语可保留英文原文，但解释必须用中文。
+
+## 触发
+
+| 指令 | 行为 |
+|------|------|
+| `/ttl` | 从 `waitTolearn` 随机选一篇笔记，**优先选 `half` 状态** |
+| `/ttl <知识点>` | 指定学习名为 `<知识点>` 的笔记 |
+
+## 状态模型
+
+| 状态 | 含义 | 位置 | 选择优先级 |
+|------|------|------|-----------|
+| `notyet` | 尚未学习 | waitTolearn | 低 |
+| `half` | 部分掌握 | waitTolearn | 最高 |
+| `done` | 完全掌握 | 领域文件夹 | 不再选中 |
+
+状态通过 Obsidian 原生 frontmatter 属性 `status` 维护。设状态用 `obsidian property:set`，读取用 `obsidian property:read`。
+
+## Vault 信息
+
+- 路径：`C:\Users\Homan\iLearn`
+- 所有 Obsidian CLI 命令必须带 `vault="iLearn"`
+- 依赖 `obsidian-cli` skill
+
+---
+
+## 工作流
+
+### 阶段 0：冷启动 Obsidian（自动）
+
+执行任何 Obsidian CLI 操作前，先确认 Obsidian 是否在运行：
+
+```bash
+obsidian vault="iLearn" files folder="waitTolearn"
+```
+
+若返回 `"The CLI is unable to find Obsidian"`，自动启动：
+
+```bash
+# Windows: URI 协议启动（若已安装 Obsidian）
+Start-Process "obsidian://open?vault=iLearn" -ErrorAction SilentlyContinue
+
+# 等待 Obsidian 就绪（轮询检测，最长等待 15 秒）
+while ($true) {
+  Start-Sleep -Seconds 2
+  $result = obsidian vault="iLearn" vault 2>&1 | Out-String
+  if ($result -notmatch "unable to find") { break }
+}
+
+# macOS 备选: open "obsidian://open?vault=iLearn"
+# Linux 备选: xdg-open "obsidian://open?vault=iLearn"
+```
+
+此阶段对用户透明，无需用户手动打开 Obsidian。
+
+```
+/ttl 无参数：
+  obsidian vault="iLearn" files folder="waitTolearn"
+  → 逐个读取 status 属性 → 优先选 half，half 有多个则随机选一个
+  → half 无则从 notyet 中随机选
+  → 若 waitTolearn 为空：告知用户"waitTolearn 里没有待学习笔记"
+
+/ttl <知识点>：
+  obsidian vault="iLearn" read file="<知识点>"
+  → 文件存在 → 继续
+  → 文件不存在 → 告知用户并列出 waitTolearn 中可用笔记
+```
+
+### 阶段 2：读取与讲解
+
+```bash
+obsidian vault="iLearn" read file="<笔记名>"
+obsidian vault="iLearn" property:read name="status" file="<笔记名>"
+```
+
+读取后进行基本讲解（2-4 句核心要点），不依赖笔记内容（笔记可能最初只有标题），基于自身知识讲解。**讲解全程使用中文。**
+
+### 阶段 3：对话学习
+
+- 用户提问或表达自己的理解
+- 纠正错误、补充细节、举例说明
+- **持续跟踪**：正确复述次数、实质问题是否枯竭、对话轮次
+- **全程使用简体中文对话**
+
+#### 对话结束判断
+
+```
+立即结束（满足任一）：
+  - 用户明确信号："懂了""明白了""差不多了""总结吧"
+  - 用户连续 2 次正确复述/自我纠正 → 理解程度高
+  - 连续 2 轮无实质新问题 → 对话自然枯竭
+
+兜底问询：
+  - 对话超过 6 轮无结束信号 → 主动问"差不多了吗，需要我总结一下？"
+  - 用户表述含糊（"还行""大概懂了"）→ 追问确认问题再决定
+```
+
+#### 状态自动判定
+
+| 对话表现 | 判定 |
+|----------|------|
+| 表达清晰、自我纠正准确、无重大误解 | `done` |
+| 仍有模糊/不确定、某个要点未完全澄清 | `half` |
+
+**不询问用户状态**，agent 根据对话质量自主判定。
+
+### 阶段 4：撰写学习总结
+
+**核心原则：笔记是独立的可回看学习资料。** 用户忘记后仅靠笔记就能重新掌握。转述整理，不是对话转录。
+
+```bash
+obsidian vault="iLearn" append file="<笔记名>" content="
+## 学习记录 - YYYY-MM-DD
+
+### 核心概念
+<转述段落：知识点是什么、为什么重要、怎么用>
+
+### 关键要点
+- <本质理解>
+- <与易混淆概念的区分>
+- <使用场景 / 边界>
+
+### 常见误区
+| 误区 | 正确理解 |
+|------|---------|
+| <用户最初的理解偏差> | <纠正后的理解> |
+
+### 实践场景
+- <用户对话中提到的真实场景>
+- <补充的类比或适用场景>
+
+### 关联知识
+- [[相关笔记]] - 关联说明
+
+### 掌握程度
+half → done
+"
+```
+
+### 阶段 5：更新状态与移动
+
+```bash
+# 根据阶段 3 的自动判定更新状态
+obsidian vault="iLearn" property:set name="status" value="done" file="<笔记名>"
+```
+
+**仅 `done` 状态触发移动：**
+
+```bash
+# 列出 vault 顶层文件夹，排除 waitTolearn 和系统目录
+obsidian vault="iLearn" folders
+
+# 基于笔记标题/内容语义匹配现有文件夹（宽容度 6/10）
+# 有匹配 → obsidian vault="iLearn" move file="<笔记名>" to="<匹配文件夹>"
+# 无匹配 → 创建新文件夹并移动
+```
+
+`half` 状态**保留在 waitTolearn**，下次 `/ttl` 优先选中。
+
+### 阶段 6：知识关系维护
+
+```bash
+# 扫描 vault 中其他笔记
+obsidian vault="iLearn" files
+
+# 搜索语义相关的笔记
+obsidian vault="iLearn" search query="<关键词>"
+
+# 双向建立 wikilink
+obsidian vault="iLearn" append file="<笔记A>" content="\n- [[笔记B]]"
+obsidian vault="iLearn" append file="<笔记B>" content="\n- [[笔记A]]"
+```
+
+Obsidian 原生图谱自动渲染关系网。
+
+### 阶段 7：完成报告
+
+```
+本次学习总结已记录 ✓  状态: done
+📁 已移至: Container/
+🔗 关联: [[Docker]]
+```
+
+---
+
+## CLI 快速参考
+
+| 操作 | 命令 |
+|------|------|
+| 列出文件夹内容 | `obsidian vault="iLearn" files folder="waitTolearn"` |
+| 读取笔记 | `obsidian vault="iLearn" read file="name"` |
+| 追加内容 | `obsidian vault="iLearn" append file="name" content="..."` |
+| 设置属性 | `obsidian vault="iLearn" property:set name="status" value="done" file="name"` |
+| 读取属性 | `obsidian vault="iLearn" property:read name="status" file="name"` |
+| 移动文件 | `obsidian vault="iLearn" move file="name" to="folder"` |
+| 列出文件夹 | `obsidian vault="iLearn" folders` |
+| 搜索笔记 | `obsidian vault="iLearn" search query="term"` |
+| 列出所有文件 | `obsidian vault="iLearn" files` |
+
+---
+
+## 前置条件
+
+- Obsidian 已安装（agent 会自动启动，无需手动打开）
+- `C:\Users\Homan\iLearn` vault 存在
+- vault 中存在 `waitTolearn` 文件夹
+
+## Edge Cases
+
+| 情况 | 处理 |
+|------|------|
+| waitTolearn 为空 | 告知用户无待学习笔记 |
+| 指定笔记不存在 | 告知并列出 waitTolearn 中可用笔记 |
+| Obsidian 未运行 | 自动通过 `obsidian://open?vault=iLearn` URI 启动，轮询等待就绪 |
+| Obsidian 自动启动失败 | 告知用户手动打开 Obsidian，确保 iLearn vault 已加载 |
+| 笔记已 done（在领域文件夹） | 告知已完成学习，位于 `folder/` |
+| 用户中途中断对话 | 不追加总结，不更新状态 |
+
+## Red Flags
+
+- 每次 `/ttl` 对话结束后**必须**追加学习总结（即使对话很短）
+- 每次学习后**必须**检查并建立知识关系 wikilink
+- 状态更新**必须**由 agent 自主判定（不询问用户），在总结之后执行
+- done 状态**必须**触发移动到领域文件夹
+- **用户只参与学习对话，不得让用户操作文件或手动设置状态**
+- 使用 `vault="iLearn"`，**不得**省略
+- 总结**必须**是转述性知识卡片，不是对话记录
+- **所有输出、讲解、对话、总结必须使用简体中文**（技术术语可保留英文，但解释用中文）
