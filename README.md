@@ -1,6 +1,6 @@
 # time-to-learn
 
-OpenCode Skill。通过交互式对话学习未知概念，自动管理 Obsidian iLearn 知识库中的学习进度和知识图谱。
+OpenCode Skill。通过交互式对话学习未知概念，自动管理 Obsidian 知识库中的学习进度和知识图谱。
 
 ## 快速开始
 
@@ -11,6 +11,22 @@ OpenCode Skill。通过交互式对话学习未知概念，自动管理 Obsidian
 
 对话过程你只负责提问和理解，**agent 自动完成**总结撰写、状态更新、文件分类、知识关联。
 
+## Agent 一键安装
+
+将以下内容粘贴到 OpenCode 中，agent 将自动完成安装：
+
+```
+请帮我安装 time-to-learn skill：
+1. 从 https://github.com/Newoahil/opencode-time-to-learn 下载 SKILL.md
+2. 放到 ~/.config/opencode/skills/time-to-learn/SKILL.md
+3. 在 ~/.config/opencode/opencode.json 中注册 /ttl 命令：
+   "command": { "ttl": { "template": "Use the time-to-learn skill. $ARGUMENTS", "description": "交互式学习" } }
+4. 修改 SKILL.md 顶部的配置变量（VAULT_PATH / VAULT_NAME / LEARN_FOLDER）为你的实际路径
+5. 在 Obsidian vault 中创建 LEARN_FOLDER 对应的文件夹
+```
+
+安装完成后重启 OpenCode，输入 `/ttl` 开始学习。
+
 ## 功能
 
 - **冷启动**：自动拉起 Obsidian，无需手动打开
@@ -20,20 +36,28 @@ OpenCode Skill。通过交互式对话学习未知概念，自动管理 Obsidian
 - **状态追踪**：notyet → half → done，掌握程度一目了然
 - **知识图谱**：自动识别关联知识点，建立双向 wikilink，Obsidian 原生图谱渲染
 
-## 安装
+## 配置
+
+安装后需修改 `SKILL.md` 开头的配置变量：
+
+| 变量 | 说明 | 示例 |
+|------|------|------|
+| `VAULT_PATH` | Vault 本地路径 | `~/Documents/Notes` |
+| `VAULT_NAME` | Vault 名称（CLI vault= 参数） | `Notes` |
+| `LEARN_FOLDER` | 待学文件夹名 | `waitTolearn` |
+
+## 安装（手动）
 
 ### 1. 放置 Skill 文件
 
-将 `SKILL.md` 放入 OpenCode 的全局 skills 目录：
-
 ```bash
 # Windows
-mkdir -p %USERPROFILE%\.config\opencode\skills\time-to-learn
-copy SKILL.md %USERPROFILE%\.config\opencode\skills\time-to-learn\SKILL.md
+mkdir %USERPROFILE%\.config\opencode\skills\time-to-learn
+copy SKILL.md %USERPROFILE%\.config\opencode\skills\time-to-learn\
 
 # macOS / Linux
 mkdir -p ~/.config/opencode/skills/time-to-learn
-cp SKILL.md ~/.config/opencode/skills/time-to-learn/SKILL.md
+cp SKILL.md ~/.config/opencode/skills/time-to-learn/
 ```
 
 ### 2. 注册命令
@@ -45,17 +69,21 @@ cp SKILL.md ~/.config/opencode/skills/time-to-learn/SKILL.md
   "command": {
     "ttl": {
       "template": "Use the time-to-learn skill. $ARGUMENTS",
-      "description": "交互式学习 - 从 iLearn 知识库开始学习"
+      "description": "交互式学习"
     }
   }
 }
 ```
 
-### 3. 准备 Obsidian Vault
+### 3. 配置变量
 
-确保 Obsidian 已安装，且存在 vault `C:\Users\<用户名>\iLearn`，其中包含 `waitTolearn` 文件夹。
+编辑 `SKILL.md` 顶部的 VAULT_PATH / VAULT_NAME / LEARN_FOLDER 为你的实际值。
 
-### 4. 重启 OpenCode
+### 4. 准备 Vault
+
+在 Obsidian vault 中创建 `LEARN_FOLDER` 对应的文件夹（如 `waitTolearn`），放入你想学习的概念笔记（每个概念一个文件，标题即概念名）。
+
+### 5. 重启 OpenCode
 
 配置在重启后生效。
 
@@ -63,8 +91,8 @@ cp SKILL.md ~/.config/opencode/skills/time-to-learn/SKILL.md
 
 | 状态 | 含义 | 位置 | 选择优先级 |
 |------|------|------|-----------|
-| `notyet` | 尚未学习 | waitTolearn | 低 |
-| `half` | 部分掌握 | waitTolearn | 最高 |
+| `notyet` | 尚未学习 | LEARN_FOLDER | 低 |
+| `half` | 部分掌握 | LEARN_FOLDER | 最高 |
 | `done` | 完全掌握 | 领域文件夹 | 不再选中 |
 
 ## 工作流
@@ -102,7 +130,7 @@ cp SKILL.md ~/.config/opencode/skills/time-to-learn/SKILL.md
 每次学习后 agent 自动在笔记末尾追加结构化的知识卡片：
 
 ```markdown
-## 学习记录 - 2026-06-20
+## 学习记录 - YYYY-MM-DD
 
 ### 核心概念
 <转述段落，独立可回看>
@@ -124,17 +152,6 @@ cp SKILL.md ~/.config/opencode/skills/time-to-learn/SKILL.md
 
 ### 掌握程度
 half → done
-```
-
-## 项目结构
-
-```
-time-to-learn/
-  SKILL.md        # Skill 定义文件
-  README.md       # 本文档（中文）
-  README.en.md    # English version
-  design.md       # 设计文档
-  plan.md         # 实施计划
 ```
 
 ## License

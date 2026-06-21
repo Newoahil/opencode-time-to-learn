@@ -1,6 +1,6 @@
 # time-to-learn
 
-An OpenCode Skill for interactive learning. Manages your Obsidian iLearn vault through conversational dialogue, automatically tracking learning progress and building a knowledge graph.
+An OpenCode Skill for interactive learning. Manages your Obsidian vault through conversational dialogue, automatically tracking learning progress and building a knowledge graph.
 
 ## Quick Start
 
@@ -11,6 +11,22 @@ An OpenCode Skill for interactive learning. Manages your Obsidian iLearn vault t
 
 You focus on asking questions and building understanding. The agent handles **everything else**: writing summaries, updating status, organizing files, and linking knowledge.
 
+## Agent One-Click Install
+
+Paste this into OpenCode and the agent will handle installation:
+
+```
+Install the time-to-learn skill for me:
+1. Download SKILL.md from https://github.com/Newoahil/opencode-time-to-learn
+2. Place it at ~/.config/opencode/skills/time-to-learn/SKILL.md
+3. Register the /ttl command in ~/.config/opencode/opencode.json:
+   "command": { "ttl": { "template": "Use the time-to-learn skill. $ARGUMENTS", "description": "Interactive learning" } }
+4. Update the config variables at the top of SKILL.md (VAULT_PATH / VAULT_NAME / LEARN_FOLDER) with your values
+5. Create the LEARN_FOLDER in your Obsidian vault
+```
+
+Restart OpenCode, then type `/ttl` to start learning.
+
 ## Features
 
 - **Auto-start Obsidian**: Launches Obsidian if not running — no manual setup
@@ -20,20 +36,28 @@ You focus on asking questions and building understanding. The agent handles **ev
 - **Status tracking**: notyet → half → done, progress at a glance
 - **Knowledge graph**: Auto-detects related concepts and creates bidirectional wikilinks
 
-## Installation
+## Configuration
+
+After installation, update the variables at the top of `SKILL.md`:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `VAULT_PATH` | Local vault path | `~/Documents/Notes` |
+| `VAULT_NAME` | Vault name (for CLI `vault=` param) | `Notes` |
+| `LEARN_FOLDER` | Folder for new concepts | `waitTolearn` |
+
+## Manual Installation
 
 ### 1. Place the Skill file
 
-Copy `SKILL.md` to OpenCode's global skills directory:
-
 ```bash
 # Windows
-mkdir -p %USERPROFILE%\.config\opencode\skills\time-to-learn
-copy SKILL.md %USERPROFILE%\.config\opencode\skills\time-to-learn\SKILL.md
+mkdir %USERPROFILE%\.config\opencode\skills\time-to-learn
+copy SKILL.md %USERPROFILE%\.config\opencode\skills\time-to-learn\
 
 # macOS / Linux
 mkdir -p ~/.config/opencode/skills/time-to-learn
-cp SKILL.md ~/.config/opencode/skills/time-to-learn/SKILL.md
+cp SKILL.md ~/.config/opencode/skills/time-to-learn/
 ```
 
 ### 2. Register the command
@@ -45,17 +69,21 @@ Add to `~/.config/opencode/opencode.json`:
   "command": {
     "ttl": {
       "template": "Use the time-to-learn skill. $ARGUMENTS",
-      "description": "Interactive learning - start learning from iLearn vault"
+      "description": "Interactive learning"
     }
   }
 }
 ```
 
-### 3. Prepare Obsidian vault
+### 3. Configure variables
 
-Ensure Obsidian is installed and a vault exists at `C:\Users\<username>\iLearn` with a `waitTolearn` folder inside.
+Edit `SKILL.md` — replace VAULT_PATH, VAULT_NAME, and LEARN_FOLDER with your values.
 
-### 4. Restart OpenCode
+### 4. Prepare your vault
+
+Create the `LEARN_FOLDER` in your Obsidian vault. Add concept notes (one file per concept, with the concept name as the title).
+
+### 5. Restart OpenCode
 
 Changes take effect after restart.
 
@@ -63,8 +91,8 @@ Changes take effect after restart.
 
 | Status | Meaning | Location | Selection Priority |
 |--------|---------|----------|-------------------|
-| `notyet` | Not yet learned | waitTolearn | Low |
-| `half` | Partially mastered | waitTolearn | Highest |
+| `notyet` | Not yet learned | LEARN_FOLDER | Low |
+| `half` | Partially mastered | LEARN_FOLDER | Highest |
 | `done` | Fully mastered | Domain folder | Not selected |
 
 ## Workflow
@@ -99,10 +127,10 @@ Stage 7  Completion report
 
 ## Summary Format
 
-After each session, the agent appends a structured knowledge card to the note:
+After each session, the agent appends a structured knowledge card:
 
 ```markdown
-## Learning Record - 2026-06-20
+## Learning Record - YYYY-MM-DD
 
 ### Core Concept
 <Paraphrased summary, independently readable>
@@ -124,17 +152,6 @@ After each session, the agent appends a structured knowledge card to the note:
 
 ### Mastery Level
 half → done
-```
-
-## Project Structure
-
-```
-time-to-learn/
-  SKILL.md        # Skill definition
-  README.md       # This document (Chinese)
-  README.en.md    # English version
-  design.md       # Design document
-  plan.md         # Implementation plan
 ```
 
 ## License
