@@ -88,8 +88,19 @@ while ($running -ne $true) {
 
 /ttl <知识点>：
   obsidian vault="VAULT_NAME" read file="<知识点>"
-  → 文件存在 → 继续
-  → 文件不存在 → 告知用户并列出 LEARN_FOLDER 中可用笔记
+  → 文件存在 → 继续阶段 2
+  → 文件不存在 → 自动创建笔记，然后询问用户：
+    obsidian vault="VAULT_NAME" create path="LEARN_FOLDER/<知识点>.md" content="
+    ---
+    tags: []
+    status: notyet
+    ---
+    # <知识点>
+    > [!abstract] 一句话
+    > （待学习）
+    ### 相关的
+    " silent
+    创建后："已创建 <知识点>，要现在开始学习吗？"
 ```
 
 ### 阶段 2：读取与讲解
@@ -279,7 +290,7 @@ Obsidian 原生图谱自动渲染关系网。
 | 情况 | 处理 |
 |------|------|
 | LEARN_FOLDER 为空 | 告知用户无待学习笔记 |
-| 指定笔记不存在 | 告知并列出 LEARN_FOLDER 中可用笔记 |
+| 指定笔记不存在 | 自动创建（模板初始化），询问用户是否开始学习 |
 | Obsidian 未运行 | 自动通过 `obsidian://open?vault=VAULT_NAME` URI 启动，轮询等待就绪 |
 | Obsidian 自动启动失败 | 告知用户手动打开 Obsidian |
 | 笔记已 done（在领域文件夹） | 告知已完成学习，位于 `folder/` |
