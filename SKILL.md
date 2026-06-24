@@ -5,309 +5,441 @@ description: Use when user types /ttl command, /ttl <topic>, or expresses intent
 
 # time-to-learn
 
-## 概述
+## Overview
 
-交互式学习 skill。用户只参与学习对话，agent 全自动完成：笔记选择、内容讲解、对话纠正、学习总结撰写、状态判定、文件移动、知识关系 wikilink 维护。
+Interactive learning skill. User participates only in learning dialogue; agent handles everything else: note selection, explanation, dialogue correction, summary writing, status determination, file moving, knowledge graph maintenance via wikilinks.
 
-**所有输出必须使用简体中文。** 讲解、对话、总结、报告全部为中文。技术术语可保留英文原文，但解释必须用中文。
+**CRITICAL: All user-facing output MUST be in Simplified Chinese.** Explanations, dialogue, summaries, reports — all Chinese. Technical terms may remain in English but explanations must be in Chinese. Notes written to Obsidian MUST be in Chinese.
 
-## 配置
+## Configuration
 
-使用前请根据你的实际环境修改以下变量。Agent 在对话中应使用这些配置：
+Before use, fill in these values for your environment:
 
-| 配置项 | 说明 | 示例 |
-|--------|------|------|
-| `VAULT_PATH` | Obsidian vault 的本地路径 | `C:\Users\<name>\iLearn` 或 `~/Documents/iLearn` |
-| `VAULT_NAME` | Obsidian vault 名称（CLI 中 `vault=` 参数） | `iLearn` |
-| `LEARN_FOLDER` | 待学习笔记所在文件夹 | `waitTolearn` |
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `C:\Users\Homan\iLearn` | Local path to Obsidian vault | `C:\Users\<name>\Notes` or `~/Documents/Notes` |
+| `iLearn` | Vault name (used as `vault=` in CLI) | `Notes` |
+| `waitTolearn` | Folder for pending concepts | `waitTolearn` |
 
-以下文档中以 `VAULT_PATH`、`VAULT_NAME`、`LEARN_FOLDER` 指代这些可配置值。
+Throughout this document, `C:\Users\Homan\iLearn`, `iLearn`, `waitTolearn` refer to these configurable values.
 
-## 触发
+## Trigger
 
-| 指令 | 行为 |
-|------|------|
-| `/ttl` | 从 `LEARN_FOLDER` 随机选一篇笔记，**优先选 `half` 状态** |
-| `/ttl <知识点>` | 指定学习名为 `<知识点>` 的笔记 |
+| Command | Behavior |
+|---------|----------|
+| `/ttl` | Randomly select a note from `waitTolearn`, **prioritizing `half` status** |
+| `/ttl <topic>` | Learn about the specified topic |
 
-## 状态模型
+## Status Model
 
-| 状态 | 含义 | 位置 | 选择优先级 |
-|------|------|------|-----------|
-| `notyet` | 尚未学习 | `LEARN_FOLDER` | 低 |
-| `half` | 部分掌握 | `LEARN_FOLDER` | 最高 |
-| `done` | 完全掌握 | 领域文件夹 | 不再选中 |
+| Status | Meaning | Location | Selection Priority |
+|--------|---------|----------|-------------------|
+| `notyet` | Not yet learned | `waitTolearn` | Low |
+| `half` | Partially mastered | `waitTolearn` | Highest |
+| `done` | Fully mastered | Domain folder | Not selected |
 
-状态通过 Obsidian 原生 frontmatter 属性 `status` 维护。
+Status is maintained via Obsidian frontmatter property `status`. Set with `obsidian property:set`, read with `obsidian property:read`.
 
-## Vault 信息
+## Vault Info
 
-- Vault 路径：由 `VAULT_PATH` 配置
-- 所有 Obsidian CLI 命令必须带 `vault="VAULT_NAME"`
-- 依赖 `obsidian-cli` skill
+- Vault path: configured via `C:\Users\Homan\iLearn`
+- All Obsidian CLI commands must use `vault="iLearn"`
+- Depends on `obsidian-cli` skill
 
 ---
 
-## 工作流
+## Workflow
 
-### 阶段 0：冷启动 Obsidian（自动）
+### Stage 0: Cold-start Obsidian (auto)
 
-执行任何 Obsidian CLI 操作前，先确认 Obsidian 是否在运行：
+Before any Obsidian CLI operations, check if Obsidian is running:
 
 ```bash
-obsidian vault="VAULT_NAME" files folder="LEARN_FOLDER"
+obsidian vault="iLearn" files folder="waitTolearn"
 ```
 
-若返回 `"The CLI is unable to find Obsidian"`，自动启动：
+If response contains `"The CLI is unable to find Obsidian"`, auto-launch:
 
 ```bash
-# Windows: URI 协议启动
-Start-Process "obsidian://open?vault=VAULT_NAME"
+# Windows: URI protocol
+Start-Process "obsidian://open?vault=iLearn"
 
-# macOS: open "obsidian://open?vault=VAULT_NAME"
-# Linux: xdg-open "obsidian://open?vault=VAULT_NAME"
+# macOS: open "obsidian://open?vault=iLearn"
+# Linux: xdg-open "obsidian://open?vault=iLearn"
 
-# 轮询等待 Obsidian 就绪（最长 15 秒）
+# Poll until ready (max 15 seconds)
 while ($running -ne $true) {
   Start-Sleep -Seconds 2
-  $result = obsidian vault="VAULT_NAME" files folder="LEARN_FOLDER" 2>&1
+  $result = obsidian vault="iLearn" files folder="waitTolearn" 2>&1
   if ($result -notmatch "unable to find") { break }
 }
 ```
 
-此阶段对用户透明，无需用户手动打开 Obsidian。
+Transparent to user — no manual Obsidian launch needed.
 
-### 阶段 1：选中笔记
+### Stage 1: Select Note
 
-**关键区分：有参数和没参数走完全不同的分支。**
+**CRITICAL DISTINCTION: with-argument and without-argument are completely different branches.**
 
 ```
-/ttl 无参数（$ARGUMENTS 为空）：
-  1. obsidian vault="VAULT_NAME" files folder="LEARN_FOLDER"
-  2. 逐个读取 status 属性 → 优先选 half，half 有多个则随机选一个
-  3. half 无则从 notyet 中随机选
-  4. 若 LEARN_FOLDER 为空：告知用户"LEARN_FOLDER 里没有待学习笔记"
-  5. 此分支绝不使用任何参数值
+/ttl without argument ($ARGUMENTS is empty):
+  1. obsidian vault="iLearn" files folder="waitTolearn"
+  2. Read status property of each file -> prioritize "half", randomly pick among half
+  3. If no half, randomly pick from "notyet"
+  4. If waitTolearn is empty: inform user "No pending notes in waitTolearn"
+  5. This branch NEVER uses any argument value
 
-/ttl <知识点>（$ARGUMENTS 非空）：
-  1. 必须直接定位到 <知识点>，跳过 half 优先级和随机选择
-  2. obsidian vault="VAULT_NAME" read file="<知识点>"
-  3. 文件存在 → 继续阶段 2
-  4. 文件不存在 → 自动创建笔记，然后询问用户：
-     obsidian vault="VAULT_NAME" create path="LEARN_FOLDER/<知识点>.md" content="
+/ttl <topic> ($ARGUMENTS is non-empty):
+  1. MUST directly target <topic>. SKIP half-priority and random selection entirely.
+  2. obsidian vault="iLearn" read file="<topic>"
+  3. File exists -> proceed to Stage 2
+  4. File does NOT exist -> auto-create note with template, then ask user:
+     obsidian vault="iLearn" create path="waitTolearn/<topic>.md" content="
      ---
      tags: []
      status: notyet
      ---
-     # <知识点>
-     > [!abstract] 一句话
-     > （待学习）
-     ### 相关的
+     # <topic>
+     > [!abstract] One-liner
+     > (pending)
+     ### Related
      " silent
-     创建后："已创建 <知识点>，要现在开始学习吗？"
+     After creation: "Created <topic>. Start learning now?" (in Chinese)
 ```
 
-### 阶段 2：读取与讲解
+### Stage 2: Read and Explain
 
 ```bash
-obsidian vault="VAULT_NAME" read file="<笔记名>"
-obsidian vault="VAULT_NAME" property:read name="status" file="<笔记名>"
+obsidian vault="iLearn" read file="<note name>"
+obsidian vault="iLearn" property:read name="status" file="<note name>"
 ```
 
-读取后进行基本讲解（2-4 句核心要点），不依赖笔记内容（笔记可能最初只有标题），基于自身知识讲解。**讲解全程使用中文。**
+Give a brief explanation (2-4 key points). Do not rely on note content (it may only have a title). Explain from your own knowledge. **Must speak in Chinese.**
 
-### 阶段 3：对话学习
+### Stage 3: Learning Dialogue
 
-- 用户提问或表达自己的理解
-- 纠正错误、补充细节、举例说明
-- **持续跟踪**：正确复述次数、实质问题是否枯竭、对话轮次
-- **全程使用简体中文对话**
+- User asks questions or expresses their understanding
+- Correct errors, add details, give examples
+- **Track continuously:** correct restatement count, whether substantive questions dry up, conversation round count
+- **All dialogue in Chinese**
 
-#### 对话结束判断
+#### Conversation End Logic
 
 ```
-立即结束（满足任一）：
-  - 用户明确信号："懂了""明白了""差不多了""总结吧"
-  - 用户连续 2 次正确复述/自我纠正 → 理解程度高
-  - 连续 2 轮无实质新问题 → 对话自然枯竭
+End immediately (any one satisfied):
+  - User clearly signals: "dong le", "ming bai le", "chabuduo le", "zongjie ba"
+  - User correctly restates / self-corrects 2 consecutive times -> high comprehension
+  - 2 consecutive rounds with no substantive new questions -> natural exhaustion
 
-兜底问询：
-  - 对话超过 6 轮无结束信号 → 主动问"差不多了吗，需要我总结一下？"
-  - 用户表述含糊（"还行""大概懂了"）→ 追问确认问题再决定
+Fallback inquiry:
+  - Over 6 rounds without end signal -> ask "Ready for a summary?" (in Chinese)
+  - User response is vague (e.g. "hai xing") -> follow up with one confirmation question first
 ```
 
-#### 状态自动判定
+#### Auto Status Determination
 
-| 对话表现 | 判定 |
-|----------|------|
-| 表达清晰、自我纠正准确、无重大误解 | `done` |
-| 仍有模糊/不确定、某个要点未完全澄清 | `half` |
+| Dialogue Performance | Determination |
+|---------------------|---------------|
+| Clear expression, accurate self-correction, no major misunderstandings | `done` |
+| Still fuzzy/uncertain, some point not fully clarified | `half` |
 
-**不询问用户状态**，agent 根据对话质量自主判定。
+**Do NOT ask user for status.** Agent determines autonomously based on dialogue quality.
 
-### 阶段 4：撰写学习总结
+### Stage 4: Write Learning Summary
 
-**核心原则：笔记是独立的可回看学习资料。** 用户忘记后仅靠笔记就能重新掌握。口语化表达，使用 Obsidian callout 美化排版。
+**Core principle: The note is an independent, re-readable learning resource.** The user should be able to re-learn from just reading the note. Paraphrase, do not transcribe dialogue. Use casual, conversational tone. Use Obsidian callouts for visual structure. **All note content in Chinese.**
 
-**首次学习时**，先用模板初始化笔记结构，后续追加内容。
+#### 4a. Scale Auto-Detection
 
-#### 4a. 首次学习：初始化模板
+Before writing, determine the learning scale from dialogue analysis:
+
+| Scale | Concepts | Template | Triggers |
+|-------|----------|----------|----------|
+| **S** (Small) | 1-3 | Diary summary (append) | Single concept, quick Q&A, no sub-divisions |
+| **M** (Medium) | 4-9 | Sectioned note (overwrite) | Multiple sub-concepts, comparisons, categories |
+| **L** (Large) | 10+ | Full structured note with TOC (overwrite) | Systematic learning, commands, comparison tables, broad domain |
+
+Auto-judge criteria:
+- Count distinct concepts discussed (each new term/idea = 1 concept)
+- Whether user asked for commands, examples, or comparisons
+- Whether dialogue formed natural topic clusters (groups of related concepts)
+
+**NOTE:** Scale may escalate across multiple sessions on the same topic. If a note already has S-scale content and a new session adds 3+ concepts (making total ≥ 4), upgrade to M. If total reaches 10+, upgrade to L.
+
+#### 4b. Template: S (Small) — Diary Summary
+
+For quick, focused learning of 1-3 concepts. Append to existing note:
 
 ```bash
-# 写入模板结构（替代原笔记内容）
-obsidian vault="VAULT_NAME" create path="LEARN_FOLDER/<笔记名>.md" content="
+obsidian vault="iLearn" append file="<note name>" content="
+---
+
+## What I Learned - YYYY-MM-DD
+
+> [!abstract]
+> <One-sentence takeaway>
+
+> [!warning] What I Had Wrong
+> I thought: <old understanding>
+> -> Actually: <correct understanding>
+
+> [!example] Where This Applies
+> - <One concrete scenario>
+
+### Mastery Level
+<half or done>
+"
+```
+
+#### 4c. Template: M (Medium) — Sectioned Note
+
+For mid-size learning of 4-9 concepts. Overwrite note with organized sections:
+
+```bash
+obsidian vault="iLearn" create path="<note path>.md" content="
+---
+tags: []
+status: <status>
+---
+# <Concept Name>
+
+> [!abstract] One-liner
+> <Core summary in 1-2 sentences>
+
+## <Theme 1>
+
+### <Sub-concept A>
+<Explanation with callouts as needed>
+
+### <Sub-concept B>
+<Explanation with callouts>
+
+## <Theme 2>
+
+### <Sub-concept C>
+<Explanation>
+
+> [!warning] 关键误区纠正
+> - 以为 X → 实际是 Y
+
+## 核心要点
+- <Key takeaway 1>
+- <Key takeaway 2>
+- <Key takeaway 3>
+
+### Related
+" overwrite
+```
+
+**Structure rules for M:**
+- Group related concepts under `##` theme headings (e.g. `## 基础概念`, `## 进阶操作`)
+- Each concept gets `###` heading with 2-4 sentence explanation + callouts
+- Use `> [!warning]` for misconceptions, `> [!tip]` for analogies, `> [!example]` for scenarios
+- End with `## 核心要点` bullet summary
+
+#### 4d. Template: L (Large) — Full Structured Note
+
+For systematic learning of 10+ concepts. Overwrite note with TOC + full chapters:
+
+```bash
+obsidian vault="iLearn" create path="<note path>.md" content="
+---
+tags: []
+status: <status>
+---
+# <Concept Name>
+
+> [!abstract] One-liner
+> <Core summary in 2-3 sentences, covering the whole domain>
+
+## 目录
+
+- [[#章节1|章节1]]
+  - [[#子概念A|子概念A]]
+  - [[#子概念B|子概念B]]
+- [[#章节2|章节2]]
+  - [[#子概念C|子概念C]]
+- [[#命令速查|命令速查]]
+
+## 章节1
+
+### 子概念A
+<Detailed explanation, code blocks, ASCII diagrams>
+
+### 子概念B
+<Detailed explanation>
+
+---
+
+## 章节2
+
+### 子概念C
+<Explanation with comparison tables>
+
+---
+
+> [!warning] 关键误区纠正
+> - Thought X → Actually Y
+
+---
+
+## 命令速查
+
+| 命令 | 作用 |
+|------|------|
+| \`cmd\` | <what it does> |
+
+### Related
+" overwrite
+```
+
+**Required elements for L:**
+- `## 目录` with `[[#heading|display]]` wikilink format — **NEVER use markdown `[text](#anchor)` format for TOC links.** Obsidian only supports `[[#heading]]` wikilinks for in-note navigation.
+- Chapters separated by `---` horizontal rules
+- ASCII diagrams where helpful (branch trees, flow arrows, architecture diagrams)
+- Comparison tables for contrasting concepts (e.g. merge vs rebase, Git Flow vs GitHub Flow)
+- Callouts: `> [!important]` for critical insights, `> [!warning]` for misconceptions, `> [!tip]` for analogies, `> [!example]` for use cases
+- End with `## 命令速查` if any CLI commands were discussed in the session
+- Code blocks with `bash`, `python`, `gitignore` etc. language tags
+
+#### 4e. First-time note initialization
+
+(Only used when a note is brand new, before first dialogue)
+
+```bash
+obsidian vault="iLearn" create path="waitTolearn/<topic>.md" content="
 ---
 tags: []
 status: notyet
 ---
 
-# <概念名>
+# <concept name>
 
-> [!abstract] 一句话
-> （待学习）
+> [!abstract] One-liner
+> (pending)
 
-### 相关的
-"
-overwrite
-```
-
-#### 4b. 追加学习总结
-
-```bash
-obsidian vault="VAULT_NAME" append file="<笔记名>" content="
----
-
-## 学到了什么 - YYYY-MM-DD
-
-> [!abstract] 一句话
-> <最简单直白的解释>
-
-### 我是怎么理解的
-1. 一开始我以为...
-2. 后来发现...
-3. 现在我懂了...
-
-> [!warning] 之前理解错的地方
-
-我以为 <旧理解>
-→ 其实 <正确理解>
-
-> [!example] 在哪能用上
-- <你在对话里提到的真实场景>
-- <我补充的例子>
-
-### 掌握程度
-half
+### Related
 "
 ```
 
-#### 4c. 更新关联
+After first dialogue: if scale S → use 4b (append). If scale M or L → use 4c/4d (overwrite) immediately — do NOT append diary summaries before overwriting.
 
-在笔记顶部的 `### 相关的` 区域追加新发现的关联笔记：
+#### 4f. Update related links
 
-```bash
-obsidian vault="VAULT_NAME" append file="<笔记名>" content="- [[笔记A]] - <关联说明>"
-```
-
-#### 4d. 自动打标签
-
-根据概念所属领域自动添加 tags 属性：
+Append newly discovered related notes to the top-level `### Related` section:
 
 ```bash
-obsidian vault="VAULT_NAME" property:set name="tags" value="devops, ci-cd" type="list" file="<笔记名>"
+obsidian vault="iLearn" append file="<note name>" content="- [[Note A]] - <brief connection>"
 ```
 
-**标签判定**：根据对话内容判断概念的领域，用 1-3 个英文小写标签。常见领域：`devops`, `backend`, `frontend`, `database`, `testing`, `system`, `network`, `language`, `framework`, `tool`。
+For L-scale notes, also add bidirectional links from related notes back to this one.
 
-### 阶段 5：更新状态与移动
+#### 4g. Auto-tag
+
+Add tags property based on the concept's domain:
 
 ```bash
-# 根据阶段 3 的自动判定更新状态
-obsidian vault="VAULT_NAME" property:set name="status" value="done" file="<笔记名>"
+obsidian vault="iLearn" property:set name="tags" value="devops, ci-cd" type="list" file="<note name>"
 ```
 
-**仅 `done` 状态触发移动：**
+**Tag determination:** Based on conversation content, assign 1-3 lowercase English tags. Common domains: `devops`, `backend`, `frontend`, `database`, `testing`, `system`, `network`, `language`, `framework`, `tool`.
+
+### Stage 5: Update Status and Move
 
 ```bash
-# 列出 vault 顶层文件夹，排除 LEARN_FOLDER 和系统目录
-obsidian vault="VAULT_NAME" folders
-
-# 基于笔记标题/内容语义匹配现有文件夹（宽容度 6/10）
-# 有匹配 → obsidian vault="VAULT_NAME" move file="<笔记名>" to="<匹配文件夹>"
-# 无匹配 → 创建新文件夹并移动
+# Update status based on Stage 3 auto-determination
+obsidian vault="iLearn" property:set name="status" value="done" file="<note name>"
 ```
 
-`half` 状态**保留在 LEARN_FOLDER**，下次 `/ttl` 优先选中。
-
-### 阶段 6：知识关系维护
+**Only `done` status triggers move:**
 
 ```bash
-# 扫描 vault 中其他笔记
-obsidian vault="VAULT_NAME" files
+# List top-level vault folders, excluding waitTolearn and system directories
+obsidian vault="iLearn" folders
 
-# 搜索语义相关的笔记
-obsidian vault="VAULT_NAME" search query="<关键词>"
-
-# 双向建立 wikilink
-obsidian vault="VAULT_NAME" append file="<笔记A>" content="\n- [[笔记B]]"
-obsidian vault="VAULT_NAME" append file="<笔记B>" content="\n- [[笔记A]]"
+# Match existing folder semantically by note title/content (tolerance 6/10)
+# Match found -> obsidian vault="iLearn" move file="<note name>" to="<matching folder>"
+# No match -> create new folder then move
 ```
 
-Obsidian 原生图谱自动渲染关系网。
+`half` status **stays in waitTolearn**, prioritized at next `/ttl`.
 
-### 阶段 7：完成报告
+### Stage 6: Knowledge Graph Maintenance
+
+```bash
+# Scan other notes in vault
+obsidian vault="iLearn" files
+
+# Search for semantically related notes
+obsidian vault="iLearn" search query="<keywords>"
+
+# Bidirectional wikilinks
+obsidian vault="iLearn" append file="<note A>" content="\n- [[note B]]"
+obsidian vault="iLearn" append file="<note B>" content="\n- [[note A]]"
+```
+
+Obsidian's native graph view renders relationships automatically.
+
+### Stage 7: Completion Report
 
 ```
-本次学习总结已记录 ✓  状态: done
-📁 已移至: <领域文件夹>/
-🔗 关联: [[相关笔记A]] | [[相关笔记B]]
+Learning summary recorded.  Status: done
+Moved to: <domain folder>/
+Related: [[Note A]] | [[Note B]]
 ```
+(Output in Chinese)
 
 ---
 
-## CLI 快速参考
+## CLI Quick Reference
 
-所有命令必须带 `vault="VAULT_NAME"`。
+All commands must include `vault="iLearn"`.
 
-| 操作 | 命令 |
-|------|------|
-| 列出文件夹内容 | `obsidian vault="VAULT_NAME" files folder="LEARN_FOLDER"` |
-| 读取笔记 | `obsidian vault="VAULT_NAME" read file="name"` |
-| 追加内容 | `obsidian vault="VAULT_NAME" append file="name" content="..."` |
-| 设置属性 | `obsidian vault="VAULT_NAME" property:set name="status" value="done" file="name"` |
-| 读取属性 | `obsidian vault="VAULT_NAME" property:read name="status" file="name"` |
-| 移动文件 | `obsidian vault="VAULT_NAME" move file="name" to="folder"` |
-| 列出文件夹 | `obsidian vault="VAULT_NAME" folders` |
-| 搜索笔记 | `obsidian vault="VAULT_NAME" search query="term"` |
-| 列出所有文件 | `obsidian vault="VAULT_NAME" files` |
+| Operation | Command |
+|-----------|---------|
+| List folder contents | `obsidian vault="iLearn" files folder="waitTolearn"` |
+| Read note | `obsidian vault="iLearn" read file="name"` |
+| Append content | `obsidian vault="iLearn" append file="name" content="..."` |
+| Set property | `obsidian vault="iLearn" property:set name="status" value="done" file="name"` |
+| Read property | `obsidian vault="iLearn" property:read name="status" file="name"` |
+| Move file | `obsidian vault="iLearn" move file="name" to="folder"` |
+| List folders | `obsidian vault="iLearn" folders` |
+| Search notes | `obsidian vault="iLearn" search query="term"` |
+| List all files | `obsidian vault="iLearn" files` |
 
 ---
 
-## 前置条件
+## Prerequisites
 
-- Obsidian 已安装（agent 会自动启动，无需手动打开）
-- Vault 存在且路径由 `VAULT_PATH` 指定
-- vault 中存在由 `LEARN_FOLDER` 指定的文件夹
+- Obsidian installed (agent auto-launches, no manual start needed)
+- Vault exists at path specified by `C:\Users\Homan\iLearn`
+- Vault contains folder specified by `waitTolearn`
 
 ## Edge Cases
 
-| 情况 | 处理 |
-|------|------|
-| LEARN_FOLDER 为空 | 告知用户无待学习笔记 |
-| 指定笔记不存在 | 自动创建（模板初始化），询问用户是否开始学习 |
-| Obsidian 未运行 | 自动通过 `obsidian://open?vault=VAULT_NAME` URI 启动，轮询等待就绪 |
-| Obsidian 自动启动失败 | 告知用户手动打开 Obsidian |
-| 笔记已 done（在领域文件夹） | 告知已完成学习，位于 `folder/` |
-| 用户中途中断对话 | 不追加总结，不更新状态 |
+| Situation | Handling |
+|-----------|----------|
+| waitTolearn is empty | Inform user no pending notes |
+| Specified note does not exist | Auto-create with template, ask user whether to start learning |
+| Obsidian not running | Auto-launch via `obsidian://open?vault=iLearn`, poll until ready |
+| Auto-launch fails | Tell user to manually open Obsidian |
+| Note is already done (in domain folder) | Inform user it's completed, located in `folder/` |
+| User interrupts dialogue mid-session | Do not append summary, do not update status |
+| Scale escalation: new session adds concepts pushing total to higher tier | Upgrade to higher template, overwrite entire note |
+| L-scale note: TOC links don't jump | Must use `[[#heading|display]]` wikilinks, not `[text](#anchor)` |
+| Obsidian CLI move uses cached content (not filesystem changes) | After overwriting via filesystem, use direct file write + delete old path; verify with Read tool |
 
 ## Red Flags
 
-- 每次 `/ttl` 对话结束后**必须**追加学习总结（即使对话很短）
-- 每次学习后**必须**检查并建立知识关系 wikilink
-- 状态更新**必须**由 agent 自主判定（不询问用户），在总结之后执行
-- done 状态**必须**触发移动到领域文件夹
-- **用户只参与学习对话，不得让用户操作文件或手动设置状态**
-- 所有 Obsidian CLI 命令**必须**带 `vault="VAULT_NAME"`
-- `/ttl <知识点>` 指定了参数时，**必须直接定位该笔记**，绝不走 half 优先或随机选择
-- 总结**必须**是转述性知识卡片，不是对话记录
-- **所有输出、讲解、对话、总结必须使用简体中文**（技术术语可保留英文，但解释用中文）
+- After every `/ttl` dialogue ends, **MUST** write learning summary (append for scale S, overwrite for M/L) — even if dialogue was short
+- **MUST** auto-detect learning scale (S/M/L) before writing summary, based on concept count and dialogue depth
+- For L-scale notes, TOC links **MUST** use `[[#heading|display]]` wikilink format — **NEVER** use markdown `[text](#anchor)` as Obsidian does not support standard anchor links for in-note navigation
+- When scale escalates across sessions (e.g. S→M, M→L), **MUST** upgrade to the appropriate template and overwrite the note completely
+- After every session, **MUST** check and establish knowledge relationship wikilinks
+- Status update **MUST** be auto-determined by agent (do not ask user), performed after summary
+- `done` status **MUST** trigger move to domain folder
+- **User only participates in dialogue; never ask user to operate files or set status manually**
+- All Obsidian CLI commands **MUST** include `vault="iLearn"`
+- `/ttl <topic>` with an argument **MUST** directly target that note; never fall back to half-priority or random selection
+- Summary **MUST** be a paraphrased knowledge card, not a dialogue transcript
+- **All user-facing output, dialogue, and notes MUST be in Simplified Chinese.** Technical terms may stay in English but explanations must be in Chinese.
