@@ -125,15 +125,23 @@ Give a brief explanation (2-4 key points). Do not rely on note content (it may o
 
 #### Conversation End Logic
 
+**CRITICAL: Upon detecting ANY end signal, agent MUST first ask the user for confirmation before proceeding to summary. Never auto-advance to Stage 4 without explicit user agreement.**
+
 ```
-End immediately (any one satisfied):
+End signal detection (any one triggers confirmation prompt):
   - User clearly signals: "dong le", "ming bai le", "chabuduo le", "zongjie ba"
   - User correctly restates / self-corrects 2 consecutive times -> high comprehension
   - 2 consecutive rounds with no substantive new questions -> natural exhaustion
-
-Fallback inquiry:
   - Over 6 rounds without end signal -> ask "Ready for a summary?" (in Chinese)
-  - User response is vague (e.g. "hai xing") -> follow up with one confirmation question first
+
+Upon detecting ANY end signal:
+  → MUST ask: "要写总结了不？" (or equivalent Chinese confirmation)
+  → Wait for user's explicit response
+  → "yes / y / 好 / 可以 / 写吧 / 总结" → proceed to Stage 4
+  → "no / 等等 / 继续 / 还没" → continue Stage 3 dialogue
+  → Vague response (e.g. "hai xing") → follow up with one more confirmation question first, then decide
+
+Under NO circumstances skip the confirmation step. User's "ming bai le" alone does NOT trigger summary.
 ```
 
 #### Auto Status Determination
