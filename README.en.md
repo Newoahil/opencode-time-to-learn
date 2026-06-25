@@ -1,6 +1,6 @@
 # time-to-learn
 
-An OpenCode Skill for interactive learning. Manages your Obsidian vault through conversational dialogue, automatically tracking learning progress and building a knowledge graph.
+A skill for interactive learning via AI coding assistants. Manages your Obsidian vault through conversational dialogue, automatically tracking learning progress and building a knowledge graph.
 
 ## Quick Start
 
@@ -13,19 +13,19 @@ You focus on asking questions and building understanding. The agent handles **ev
 
 ## Agent One-Click Install
 
-Paste this into OpenCode and the agent will handle installation:
+Paste this into your AI coding assistant and it will handle installation:
 
 ```
 Install the time-to-learn skill for me:
-1. Download SKILL.md from https://github.com/Newoahil/opencode-time-to-learn
-2. Place it at ~/.config/opencode/skills/time-to-learn/SKILL.md
-3. Register the /ttl command in ~/.config/opencode/opencode.json:
+1. Download SKILL.md from https://github.com/Newoahil/time-to-learn
+2. Place it in the skills directory for this tool (e.g. ~/.config/opencode/skills/time-to-learn/SKILL.md)
+3. Register the /ttl command in your tool's config:
    "command": { "ttl": { "template": "Use the time-to-learn skill. $ARGUMENTS", "description": "Interactive learning" } }
 4. Update the config variables at the top of SKILL.md (VAULT_PATH / VAULT_NAME / LEARN_FOLDER) with your values
 5. Create the LEARN_FOLDER in your Obsidian vault
 ```
 
-Restart OpenCode, then type `/ttl` to start learning.
+Restart your tool, then type `/ttl` to start learning.
 
 ## Features
 
@@ -52,17 +52,17 @@ After installation, update the variables at the top of `SKILL.md`:
 
 ```bash
 # Windows
-mkdir %USERPROFILE%\.config\opencode\skills\time-to-learn
-copy SKILL.md %USERPROFILE%\.config\opencode\skills\time-to-learn\
+mkdir %USERPROFILE%\.config\<tool>\skills\time-to-learn
+copy SKILL.md %USERPROFILE%\.config\<tool>\skills\time-to-learn\
 
 # macOS / Linux
-mkdir -p ~/.config/opencode/skills/time-to-learn
-cp SKILL.md ~/.config/opencode/skills/time-to-learn/
+mkdir -p ~/.config/<tool>/skills/time-to-learn
+cp SKILL.md ~/.config/<tool>/skills/time-to-learn/
 ```
 
 ### 2. Register the command
 
-Add to `~/.config/opencode/opencode.json`:
+Add to your tool's config file:
 
 ```json
 {
@@ -83,7 +83,7 @@ Edit `SKILL.md` — replace VAULT_PATH, VAULT_NAME, and LEARN_FOLDER with your v
 
 Create the `LEARN_FOLDER` in your Obsidian vault. Add concept notes (one file per concept, with the concept name as the title).
 
-### 5. Restart OpenCode
+### 5. Restart your tool
 
 Changes take effect after restart.
 
@@ -120,10 +120,8 @@ Stage 7  Completion report
 
 ## Prerequisites
 
-- [OpenCode](https://opencode.ai)
+- An AI coding assistant with skill support (e.g. OpenCode, Claude Code, Copilot CLI)
 - [Obsidian](https://obsidian.md) (auto-launched by agent)
-- Obsidian CLI (built into Obsidian)
-- Dependent skill: `obsidian-cli`
 
 ## Summary Format
 

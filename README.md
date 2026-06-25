@@ -1,6 +1,6 @@
 # time-to-learn
 
-An interactive learning skill for OpenCode that turns your Obsidian vault into a spaced-repetition knowledge base. The agent handles everything — note selection, explanation, dialogue, summary writing, status tracking, file organization, and knowledge graph maintenance. You just talk and learn.
+An interactive learning skill for AI coding assistants that turns your Obsidian vault into a conversation-driven knowledge base. The agent handles everything — note selection, explanation, dialogue, summary writing, status tracking, file organization, and knowledge graph maintenance. You just talk and learn.
 
 ## Features
 
@@ -20,17 +20,21 @@ An interactive learning skill for OpenCode that turns your Obsidian vault into a
 
 ## Installation
 
-1. Place the `time-to-learn` folder in your OpenCode skills directory:
-   ```
-   ~/.opencode/skills/time-to-learn/
-   ```
+Place the `time-to-learn` folder in your skills directory (location varies by platform — see your AI coding tool's skill documentation):
 
-2. Configure the skill by editing `SKILL.md`:
-   - `C:\Users\Homan\iLearn` → Your Obsidian vault path
-   - `iLearn` → Your vault name
-   - `waitTolearn` → Folder name for pending concepts (auto-created)
+```
+~/.config/<tool>/skills/time-to-learn/SKILL.md
+```
 
-3. Ensure you have the `obsidian-cli` skill installed and Obsidian running (skill auto-launches it).
+Configure the skill by editing the variables at the top of `SKILL.md`:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `VAULT_PATH` | Local path to Obsidian vault | `~/Documents/Notes` |
+| `VAULT_NAME` | Vault name (for CLI `vault=` param) | `Notes` |
+| `LEARN_FOLDER` | Folder for pending concepts | `waitTolearn` |
+
+Ensure you have the `obsidian-cli` skill installed and Obsidian running (skill auto-launches it).
 
 ## Usage
 
@@ -79,10 +83,9 @@ Stage 7: Completion report
 
 ## Requirements
 
-- OpenCode with skill support
+- An AI coding assistant with skill support (e.g. OpenCode, Claude Code, Copilot CLI)
 - Obsidian (auto-launched via `obsidian://open` protocol)
 - `obsidian-cli` skill installed
-- Vault with a `waitTolearn/` folder (or any name you configure)
 
 ## Edge Cases
 
