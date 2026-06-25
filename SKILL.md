@@ -96,9 +96,9 @@ Transparent to user — no manual Obsidian launch needed.
   4. File does NOT exist -> auto-create note with template, then ask user:
      obsidian vault="iLearn" create path="waitTolearn/<topic>.md" content="
      ---
-     tags: []
      status: notyet
      ---
+
      # <topic>
      > [!abstract] One-liner
      > (pending)
@@ -203,12 +203,17 @@ obsidian vault="iLearn" append file="<note name>" content="
 
 For mid-size learning of 4-9 concepts. Overwrite note with organized sections:
 
-```bash
-obsidian vault="iLearn" create path="<note path>.md" content="
+**Use Write tool (not obsidian CLI) to overwrite the file with the final content. Frontmatter and content written in one shot — do NOT use `property:set` afterwards, as it creates duplicate frontmatter artifacts.**
+
+```
+File content (written via Write tool):
 ---
-tags: []
+tags:
+  - <tag1>
+  - <tag2>
 status: <status>
 ---
+
 # <Concept Name>
 
 > [!abstract] One-liner
@@ -236,7 +241,6 @@ status: <status>
 - <Key takeaway 3>
 
 ### Related
-" overwrite
 ```
 
 **Structure rules for M:**
@@ -249,12 +253,17 @@ status: <status>
 
 For systematic learning of 10+ concepts. Overwrite note with TOC + full chapters:
 
-```bash
-obsidian vault="iLearn" create path="<note path>.md" content="
+**Use Write tool (not obsidian CLI) to overwrite the file with the final content. Frontmatter and content written in one shot — do NOT use `property:set` afterwards, as it creates duplicate frontmatter artifacts.**
+
+```
+File content (written via Write tool):
 ---
-tags: []
+tags:
+  - <tag1>
+  - <tag2>
 status: <status>
 ---
+
 # <Concept Name>
 
 > [!abstract] One-liner
@@ -298,7 +307,6 @@ status: <status>
 | \`cmd\` | <what it does> |
 
 ### Related
-" overwrite
 ```
 
 **Required elements for L:**
@@ -317,7 +325,6 @@ status: <status>
 ```bash
 obsidian vault="iLearn" create path="waitTolearn/<topic>.md" content="
 ---
-tags: []
 status: notyet
 ---
 
@@ -329,6 +336,8 @@ status: notyet
 ### Related
 "
 ```
+
+(No tags initially — assigned after first dialogue via the Write tool when writing the summary.)
 
 After first dialogue: if scale S → use 4b (append). If scale M or L → use 4c/4d (overwrite) immediately — do NOT append diary summaries before overwriting.
 
@@ -344,20 +353,20 @@ For L-scale notes, also add bidirectional links from related notes back to this 
 
 #### 4g. Auto-tag
 
-Add tags property based on the concept's domain:
+Tags are written directly in the frontmatter when composing the summary (via Write tool), NOT via `property:set` afterwards. `property:set` after a Write tool call creates duplicate frontmatter artifacts.
 
-```bash
-obsidian vault="iLearn" property:set name="tags" value="devops, ci-cd" type="list" file="<note name>"
+**Tag determination:** Based on conversation content, assign 2-3 lowercase English tags. Common domains: `devops`, `backend`, `frontend`, `database`, `testing`, `system`, `network`, `language`, `framework`, `tool`.
+
+Tags go in the frontmatter as:
+```yaml
+tags:
+  - devops
+  - ci-cd
 ```
-
-**Tag determination:** Based on conversation content, assign 1-3 lowercase English tags. Common domains: `devops`, `backend`, `frontend`, `database`, `testing`, `system`, `network`, `language`, `framework`, `tool`.
 
 ### Stage 5: Update Status and Move
 
-```bash
-# Update status based on Stage 3 auto-determination
-obsidian vault="iLearn" property:set name="status" value="done" file="<note name>"
-```
+Status has already been written into the frontmatter during Stage 4 (summary composition). No separate `property:set` call needed — it would create duplicate artifacts.
 
 **Only `done` status triggers move:**
 
@@ -436,6 +445,7 @@ All commands must include `vault="iLearn"`.
 | Scale escalation: new session adds concepts pushing total to higher tier | Upgrade to higher template, overwrite entire note |
 | L-scale note: TOC links don't jump | Must use `[[#heading|display]]` wikilinks, not `[text](#anchor)` |
 | Obsidian CLI move uses cached content (not filesystem changes) | After overwriting via filesystem, use direct file write + delete old path; verify with Read tool |
+| Duplicate `---` appears in note after property:set | Caused by calling `property:set` after Write tool has already written frontmatter. Fix: write tags/status directly in frontmatter during Stage 4, never call property:set afterwards. |
 
 ## Red Flags
 
@@ -451,3 +461,6 @@ All commands must include `vault="iLearn"`.
 - `/ttl <topic>` with an argument **MUST** directly target that note; never fall back to half-priority or random selection
 - Summary **MUST** be a paraphrased knowledge card, not a dialogue transcript
 - **All user-facing output, dialogue, and notes MUST be in Simplified Chinese.** Technical terms may stay in English but explanations must be in Chinese.
+- **NEVER use `property:set` after using Write tool to overwrite a note** — it creates duplicate frontmatter (`---` artifacts). Tags and status go directly in the frontmatter content when writing.
+- **Frontmatter MUST have a blank line between closing `---` and the content below** (e.g. `---\n\n# Title`). Without the blank line, Obsidian may not parse frontmatter correctly.
+- **Tags in frontmatter MUST use YAML list format** (`tags:\n  - java\n  - build`), not inline bracket notation (`tags: [java, build]`).
