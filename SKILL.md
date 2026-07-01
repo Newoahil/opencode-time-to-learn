@@ -144,6 +144,28 @@ Upon detecting ANY end signal:
 Under NO circumstances skip the confirmation step. User's "ming bai le" alone does NOT trigger summary.
 ```
 
+#### Pause/Stop Signal Handler
+
+When user signals they want to pause or stop mid-dialogue (distinct from natural learning completion):
+
+**Pause signals:** `"先不学了"`, `"暂不学了"`, `"下次再学"`, `"停一下"`, `"暂停"`, `"先到这里"`, `"下次继续"`, `"不聊了"`, `"先这样"`, `"不学了"`
+
+```
+Upon detecting ANY pause signal:
+  1. MUST first ask: "要先总结当前学习进度，下次再继续吗？" (in Chinese)
+  2. User confirms yes ("好", "总结吧", "可以", "行", "写吧"):
+     -> Proceed to Stage 4 (Write Summary) based on content discussed so far
+     -> Auto-determine status as "half" (session was interrupted, not fully mastered)
+     -> Do NOT move file (half stays in LEARN_FOLDER)
+  3. User says no ("不用", "不了", "直接停", "算了"):
+     -> Do NOT write summary
+     -> Do NOT change status
+     -> Inform user: "好的，对话已暂挂，随时 /ttl <topic> 继续。"
+  4. Vague response -> follow up with one more confirmation question, then decide
+
+Under NO circumstances write summary or change status without user confirmation.
+```
+
 #### Auto Status Determination
 
 | Dialogue Performance | Determination |
@@ -441,7 +463,7 @@ All commands must include `vault="iLearn"`.
 | Obsidian not running | Auto-launch via `obsidian://open?vault=iLearn`, poll until ready |
 | Auto-launch fails | Tell user to manually open Obsidian |
 | Note is already done (in domain folder) | Inform user it's completed, located in `folder/` |
-| User interrupts dialogue mid-session | Do not append summary, do not update status |
+| User signals pause/stop mid-dialogue ("先不学了", "暂不学了" etc.) | Ask "要先总结当前学习进度，下次再继续吗？" → yes: write partial summary + set status to half → no: leave as-is, do nothing |
 | Scale escalation: new session adds concepts pushing total to higher tier | Upgrade to higher template, overwrite entire note |
 | L-scale note: TOC links don't jump | Must use `[[#heading|display]]` wikilinks, not `[text](#anchor)` |
 | Obsidian CLI move uses cached content (not filesystem changes) | After overwriting via filesystem, use direct file write + delete old path; verify with Read tool |
@@ -464,3 +486,4 @@ All commands must include `vault="iLearn"`.
 - **NEVER use `property:set` after using Write tool to overwrite a note** — it creates duplicate frontmatter (`---` artifacts). Tags and status go directly in the frontmatter content when writing.
 - **Frontmatter MUST have a blank line between closing `---` and the content below** (e.g. `---\n\n# Title`). Without the blank line, Obsidian may not parse frontmatter correctly.
 - **Tags in frontmatter MUST use YAML list format** (`tags:\n  - java\n  - build`), not inline bracket notation (`tags: [java, build]`).
+- When user signals pause/stop ("先不学了" etc.), **MUST** first ask "要总结吗？" before taking any action. Never auto-skip the confirmation.

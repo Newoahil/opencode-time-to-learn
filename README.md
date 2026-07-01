@@ -94,6 +94,7 @@ Stage 7: Completion report
 - **Specified topic doesn't exist**: Auto-creates template note
 - **Scale escalation**: New sessions on same topic may upgrade S→M→L template
 - **Obsidian CLI caching**: Direct filesystem writes used when CLI cache is stale
+- **User pauses mid-dialogue** ("先不学了", "下次再学"): Asks to save progress summary → if yes: writes partial summary with `half` status → if no: leaves unchanged
 
 ## License
 
